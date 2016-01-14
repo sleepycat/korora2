@@ -1,0 +1,75 @@
+defmodule Korora.Supervisor do
+  use Supervisor
+
+  def start_link do
+    Supervisor.start_link __MODULE__, []
+  end
+
+  def init opts do
+    tree = [
+      Plug.Adapters.Cowboy.child_spec(:http, Korora.Router, [], [port: 4000])
+    ]
+
+    supervise(tree, strategy: :one_for_one)
+  end
+
+end
+
+
+defmodule Korora.Router do
+
+  use Plug.Router
+
+  plug :match
+  plug :dispatch
+
+  get "/" do
+    send_resp(conn, 200, "hello world")
+  end
+
+  match _ do
+    send_resp(conn, 404, "oops")
+  end
+
+end
+
+
+defmodule Korora do
+  use Application
+
+  def start(_type, _args) do
+    import Supervisor.Spec, warn: false
+
+    children = [
+      supervisor(Korora.Supervisor, [])
+    ]
+
+    opts = [strategy: :one_for_one]
+    Supervisor.start_link(children, opts)
+  end
+end
+
+
+defmodule Korora.Mixfile do
+  use Mix.Project
+
+  def project do
+    [app: :korora,
+     version: "0.0.1",
+     elixir: "~> 1.0",
+     build_embedded: Mix.env == :prod,
+     start_permanent: Mix.env == :prod,
+     deps: deps]
+  end
+
+  def application do
+    [applications: [:logger, :cowboy, :plug], mod: {Korora, []}]
+  end
+
+  defp deps do
+    [
+      {:plug,      "~> 0.11"},
+      {:cowboy,    "~> 1.0"}
+    ]
+  end
+end
